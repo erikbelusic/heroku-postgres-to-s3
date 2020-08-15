@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<!-- saved from url=(0052)https://pawelurbanek.com/heroku-postgresql-s3-backup -->
+<html lang="en" xml:lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial] </title>
+    <meta name="ahrefs-site-verification" content="3e8ca2248a448b90c70345275b36876653c256927622b77a6b1c85107b8bc4e3">
+    <meta name="msvalidate.01" content="DCFD9344957C1A46A8154FEA759B5694">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Heroku offers a robust backups system for it&#39;s Postgres database plugin. Unfortunately, you can irreversibly lose all your data and backups just by typing a single command. It might seem improbable, but still, I would rather not bet my startup&#39;s existence on a single faulty bash line. In this tutorial, I will describe how to set up a proprietary redundant Heroku PostgreSQL backups system to a secure AWS S3 bucket.">
+    <meta name="robots" content="all">
+    <meta name="author" content="Paweł Urbanek">
+
+    
+
+    
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" type="text/css" href="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/styles-226c665848ceda70efeae655e72c0402dce377fe3712084a09e9791d4420d0d0.css">
+
+    
+    <meta name="keywords" content="Heroku, PostgreSQL, Postgres, backup, database, OpenSSL, S3, bucket, GPG, redundant">
+    
+
+    <link rel="canonical" href="https://pawelurbanek.com/heroku-postgresql-s3-backup">
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed for Rails Performance Audit and Tuning Consultant for Hire" href="https://pawelurbanek.com/feed.xml">
+
+    <!-- Open Graph -->
+    <!-- From: https://github.com/mmistakes/hpstr-jekyll-theme/blob/master/_includes/head.html -->
+    <meta property="og:locale" content="en_US">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial] ">
+    <meta property="og:description" content="Heroku offers a robust backups system for it&#39;s Postgres database plugin. Unfortunately, you can irreversibly lose all your data and backups just by typing a single command. It might seem improbable, but still, I would rather not bet my startup&#39;s existence on a single faulty bash line. In this tutorial, I will describe how to set up a proprietary redundant Heroku PostgreSQL backups system to a secure AWS S3 bucket.">
+    <meta property="og:url" content="https://pawelurbanek.com/heroku-postgresql-s3-backup">
+    <meta property="og:site_name" content="Rails Performance Audit and Tuning Consultant for Hire">
+    
+    <meta property="og:image" content="https://pawelurbanek.com/assets/heroku-postgresql-s3-backups-d4c67da7abfb19784c70202a3bdba030cf950638ba91d96f156fa5494542ff84.jpg">
+    
+
+
+    <!-- Twitter Card -->
+    
+      <meta name="twitter:card" content="summary_large_image">
+      <meta property="article:published_time" content="2019-06-26T08:45:40+02:00">
+    
+
+    
+    <meta name="twitter:image" content="https://pawelurbanek.com/assets/heroku-postgresql-s3-backups-d4c67da7abfb19784c70202a3bdba030cf950638ba91d96f156fa5494542ff84.jpg">
+    
+
+    <meta name="twitter:site" content="@_pawurb">
+    <meta name="twitter:creator" content="@_pawurb">
+
+    <meta name="twitter:title" content="Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]">
+
+    <meta name="twitter:description" content="Heroku offers a robust backups system for it&#39;s Postgres database plugin. Unfortunately, you can irreversibly lose all your data and backups just by typing a single command. It might seem improbable, but still, I would rather not bet my startup&#39;s existence on a single faulty bash line. In this tutorial, I will describe how to set up a proprietary redundant Heroku PostgreSQL backups system to a secure AWS S3 bucket.">
+    <meta name="twitter:url" content="https://pawelurbanek.com/heroku-postgresql-s3-backup">
+
+    <!-- Icons -->
+    <link rel="apple-touch-icon" sizes="57x57" href="https://pawelurbanek.com/apple-touch-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="https://pawelurbanek.com/apple-touch-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="https://pawelurbanek.com/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="https://pawelurbanek.com/apple-touch-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="https://pawelurbanek.com/apple-touch-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="https://pawelurbanek.com/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="https://pawelurbanek.com/apple-touch-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="https://pawelurbanek.com/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="https://pawelurbanek.com/apple-touch-icon-180x180.png">
+    <link rel="icon" type="image/png" href="https://pawelurbanek.com/favicon-192x192.png" sizes="192x192">
+    <link rel="icon" type="image/png" href="https://pawelurbanek.com/favicon-160x160.png" sizes="160x160">
+    <link rel="icon" type="image/png" href="https://pawelurbanek.com/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/png" href="https://pawelurbanek.com/favicon-16x16.png" sizes="16x16">
+    <link rel="icon" type="image/png" href="https://pawelurbanek.com/favicon-32x32.png" sizes="32x32">
+
+
+    
+<!-- Google Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "BlogPosting",
+    "mainEntityOfPage": {
+      "@type":"WebPage",
+      "@id":"https://pawelurbanek.com/heroku-postgresql-s3-backup"
+    },
+    "headline": "How to Backup Heroku Postgres Database to an Encrypted AWS S3 Bucket",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://pawelurbanek.com/assets/heroku-postgresql-s3-backups-d4c67da7abfb19784c70202a3bdba030cf950638ba91d96f156fa5494542ff84.jpg",
+      "width": 1200,
+      "height": 750
+    },
+    "datePublished": "2019-06-26",
+    "dateModified": "2020-05-12",
+    "author": {
+      "@type": "Person",
+      "name": "Paweł Urbanek"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "PabloWeb Paweł Urbanek",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://pawelurbanek.com/assets/pabloweb-69223ab6871fe2232fabdd00e23d420a15170da8a9644aee5f73a422067629c4.jpg",
+        "width": 600,
+        "height": 60
+      }
+    },
+    "description": "Heroku offers a robust backups system for it's Postgres database plugin. Unfortunately, you can irreversibly lose all your data and backups just by typing a single command. It might seem improbable, but still, I would rather not bet my startup's existence on a single faulty bash line. In this tutorial, I will describe how to set up a proprietary redundant Heroku PostgreSQL backups system to a secure AWS S3 bucket.",
+    "keywords": "Heroku, PostgreSQL, Postgres, backup, database, OpenSSL, S3, bucket, GPG, redundant"
+  }
+  </script>
+
+
+<link type="text/css" href="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/commento.css" rel="stylesheet"></head>
+
+<body class="site">
+  <div id="_progress" style="--scroll:0%;"></div>
+  
+
+  <div class="site-wrap">
+    <header class="site-header px2 px-responsive">
+  <div class="mt2 wrap">
+    <div class="measure">
+      <div class="site-title">
+        <a href="https://pawelurbanek.com/">
+          <p class="author-name">
+            Paweł Urbanek
+          </p>
+          <br>
+          <p class="blog-title theme-color">
+            Full Stack Blog
+          </p>
+        </a>
+      </div>
+      <nav class="site-nav">
+        
+
+
+
+<a class="theme-color" href="https://pawelurbanek.com/#rails-performance-tuning">Hire me</a>
+
+      </nav>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</header>
+
+
+    <div class="post p2 p-responsive wrap" role="main">
+      <div class="measure">
+        
+
+
+<div class="mobile-top page-navigation">
+  
+    <a class="prev navigation-link" href="https://pawelurbanek.com/seo-tips-programmers">« Best SEO Tips &amp; Tools for Blogging Programmers in 2020</a>
+
+  
+  
+    <a class="right next navigation-link" href="https://pawelurbanek.com/rails-secure-encrypt-decrypt"> A Simple Way to Encrypt Data in Rails without Gem »</a>
+  
+</div>
+
+<div class="fixed-share-buttons-mobile slide-in-bottom-share-buttons">
+  <span>Share</span>
+  <a href="https://twitter.com/intent/tweet?text=How+to+Backup+Heroku+Postgres+Database+to+an+Encrypted+AWS+S3+Bucket&amp;url=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup" rel="nofollow noopener noreferrer" target="_blank">
+    <img title="Share on Twitter" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png" srcset="https://pawelurbanek.com/assets/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png 1x, https://pawelurbanek.com/assets/twitter@2x-bb4de08ef7390cb0e6bc0e4c74d50e098821cd7c55f1c6b20560a7a325d29164.png 2x">
+  </a>
+  <a href="https://facebook.com/sharer.php?u=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup" rel="nofollow noopener noreferrer" target="_blank">
+    <img title="Share on Facebook" alt="Share on Facebook" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/facebook-ebff27bfb5f4575cf52588bae9aaa3e9d638d3ea8806983038f1f40ae5fefe17.png" srcset="https://pawelurbanek.com/assets/facebook-ebff27bfb5f4575cf52588bae9aaa3e9d638d3ea8806983038f1f40ae5fefe17.png 1x, https://pawelurbanek.com/assets/facebook@2x-0d1abc87e5ffdc544fa8f0f4282d2c01706bf15a814d794080aff2f7a87a0ffb.png 2x">
+  </a>
+
+   <a href="https://www.linkedin.com/shareArticle?url=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup&amp;title=How+to+Backup+Heroku+Postgres+Database+to+an+Encrypted+AWS+S3+Bucket" rel="nofollow" target="_blank">
+      <img title="Share on LinkedIn" alt="Share on LinkedIn" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/linkedin-fa921978de5a16810ecd5894affebee63ed33b4d74cad9637ba01c6e803de9cf.png" srcset="https://pawelurbanek.com/assets/linkedin-fa921978de5a16810ecd5894affebee63ed33b4d74cad9637ba01c6e803de9cf.png 1x, https://pawelurbanek.com/assets/linkedin@2x-b89a20f8fc3d0a82f9fe54137fbbbf4029dcc189f4dec6b9a3964b9350833e1f.png 2x">
+   </a>
+</div>
+
+<div class="fixed-share-buttons-desktop slide-in-left-share-buttons">
+  <span>Share</span>
+  <br>
+  <a href="https://twitter.com/intent/tweet?text=How+to+Backup+Heroku+Postgres+Database+to+an+Encrypted+AWS+S3+Bucket&amp;url=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup" rel="nofollow noopener noreferrer" target="_blank">
+    <img title="Share on Twitter" alt="Share on Twitter" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png" srcset="https://pawelurbanek.com/assets/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png 1x, https://pawelurbanek.com/assets/twitter@2x-bb4de08ef7390cb0e6bc0e4c74d50e098821cd7c55f1c6b20560a7a325d29164.png 2x">
+  </a>
+  <br>
+  <a href="https://facebook.com/sharer.php?u=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup" rel="nofollow noopener noreferrer" target="_blank">
+    <img title="Share on Facebook" alt="Share on Facebook" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/facebook-ebff27bfb5f4575cf52588bae9aaa3e9d638d3ea8806983038f1f40ae5fefe17.png" srcset="https://pawelurbanek.com/assets/facebook-ebff27bfb5f4575cf52588bae9aaa3e9d638d3ea8806983038f1f40ae5fefe17.png 1x, https://pawelurbanek.com/assets/facebook@2x-0d1abc87e5ffdc544fa8f0f4282d2c01706bf15a814d794080aff2f7a87a0ffb.png 2x">
+  </a>
+  <br>
+  <a href="https://www.linkedin.com/shareArticle?url=https%3A%2F%2Fpawelurbanek.com%2Fheroku-postgresql-s3-backup&amp;title=How+to+Backup+Heroku+Postgres+Database+to+an+Encrypted+AWS+S3+Bucket" rel="nofollow noopener noreferrer" target="_blank">
+      <img title="Share on LinkedIn" alt="Share on LinkedIn" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/linkedin-fa921978de5a16810ecd5894affebee63ed33b4d74cad9637ba01c6e803de9cf.png" srcset="https://pawelurbanek.com/assets/linkedin-fa921978de5a16810ecd5894affebee63ed33b4d74cad9637ba01c6e803de9cf.png 1x, https://pawelurbanek.com/assets/linkedin@2x-b89a20f8fc3d0a82f9fe54137fbbbf4029dcc189f4dec6b9a3964b9350833e1f.png 2x">
+   </a>
+   <br>
+</div>
+
+<div class="fixed-bottom-navigation left-side pagination">
+  
+    <div class="hidden-title"> Best SEO Tips &amp; Tools for Blogging Programmers in 2020 </div>
+    <a class="left navigation-item" href="https://pawelurbanek.com/seo-tips-programmers">« Prev</a>
+  
+</div>
+
+<div class="fixed-bottom-navigation right-side pagination">
+  
+    <div class="hidden-title"> A Simple Way to Encrypt Data in Rails without Gem </div>
+    <a class="right navigation-item" href="https://pawelurbanek.com/rails-secure-encrypt-decrypt"> Next »</a>
+  
+</div>
+
+<div class="post-header mb2">
+  <h1 id="#top">How to Backup Heroku Postgres Database to an Encrypted AWS S3 Bucket</h1>
+  
+    <span class="post-meta theme-color">Updated May 12, 2020</span>&nbsp;<a href="https://pawelurbanek.com/heroku-postgresql-s3-backup#commento" class="comments-link">16 comments</a><br>
+  
+
+  <span class="post-meta small">
+  
+    8 minute read
+  
+  </span>
+</div>
+
+<article class="post-content">
+  
+    <div class="main-image-placeholder">
+      <img class="center-image" title="Heroku PostgreSQL to S3 backups system is represented by a secure locker. Photo by Roman Synkevych on Unsplash" alt="Heroku PostgreSQL to S3 backups system is represented by a secure locker. Photo by Roman Synkevych on Unsplash" data-src="https://pawelurbanek.com/assets/heroku-postgresql-s3-backups-d4c67da7abfb19784c70202a3bdba030cf950638ba91d96f156fa5494542ff84.jpg" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/heroku-postgresql-s3-backups-d4c67da7abfb19784c70202a3bdba030cf950638ba91d96f156fa5494542ff84.jpg">
+    </div>
+  
+
+  <br>
+
+  <p>Heroku offers a <a href="https://devcenter.heroku.com/articles/heroku-postgres-backups" target="_blank">robust backups system</a> for it’s Postgres database plugin. Unfortunately, you can irreversibly lose all your data and backups just by typing a single command. It might seem improbable, but still, I would rather not bet my startup’s existence on a single faulty bash line. In this tutorial, I will describe how to set up a proprietary redundant Heroku PostgreSQL backups system to a secure <a href="https://aws.amazon.com/s3/" target="_blank">AWS S3 bucket</a>.</p>
+
+<p>I will be covering various tools including AWS CLI, OpenSSL, GPG, Heroku buildpacks, and scheduler but you don’t need to be familiar with any of those. By following this guide, you will set up a reliable, custom backups system for Heroku PostgreSQL database even if you don’t have much dev ops experience up your sleeve.</p>
+
+<p>Let’s get started!</p>
+
+<h2 id="how-to-lose-all-the-heroku-postgres-data">How to lose all the Heroku Postgres data</h2>
+
+<p>Though the first paragraph is a bit <em>“clickbaity”</em>, it’s actually true. Just by typing:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku apps:destroy app-name <span class="nt">--confirm</span> app-name</code></pre></figure>
+
+<p>you can completely destroy the Heroku app including all it’s add-ons, databases and backups data:</p>
+
+<p><img class="center-image" alt="Don&#39;t lose your Heroku data" title="Don&#39;t lose your Heroku data" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/and_its_gone-aeaff3fe669c5d82c8c4fea9562f584f5821156fb4c1d0806c7c6fc87e430750.gif"></p>
+<div class="center annotation">A single unfortunate command and all your team can go home</div>
+<p><br></p>
+
+<p><img class="center-image" alt="You can lose all the Heroku data without the redundant backup on S3" title="You can lose all the Heroku data without the secondary backup on S3" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/heroku_data_backup_lost-1f25428b7e80c3b337a3c19004370bdca5c2dcc609a438ea5ea684937b20b03a.jpg"></p>
+
+<p>Read on if you’d like to safeguard yourself against a potential total loss of your startup’s data.</p>
+
+<h2 id="set-up-an-encrypted-aws-s3-bucket">Set up an encrypted AWS S3 bucket</h2>
+
+<p>Our redundant backups system will periodically upload encrypted snapshosts of the PostgreSQL database to a secure AWS S3 bucket.</p>
+
+<p>Let’s start with adding a correctly configured S3 bucket. For a more in-depth tutorial on how to work with AWS S3 buckets, you can check out <a href="https://pawelurbanek.com/rails-secure-s3-uploads">my other article</a>.</p>
+
+<p>Make sure to disable public access and enable encryption for your new S3 bucket:</p>
+
+<p><img class="center-image" alt="Heroku data can be completely lost without the redundant backup on S3" title="Heroku data can be completely lost without the redundant backup on S3" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/aws_bucket_access-9b2fdc38bfec57a4622c44e6e249eb014fd7819e5324af4629a291927ea45cd6.png"></p>
+
+<div class="center annotation">S3 bucket public access blocked</div>
+<p><br></p>
+
+<p><img class="center-image" alt="Heroku data can be completely lost without the redundant backup on S3" title="Heroku data can be completely lost without the redundant backup on S3" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/aws_s3_encryption-58c0e7a75c28638d531d553074ad0d70f45a0278abe64aa682bb4a805750fe4f.png"></p>
+
+<div class="center annotation">S3 bucket AES-256 encryption enabled</div>
+
+<h3 id="add-an-iam-user">Add an IAM user</h3>
+
+<p>You will need Amazon AWS credentials to upload the backup dump to S3 bucket. One common mistake is to use your primary account credentials instead of creating an IAM user with limited permissions.</p>
+
+<p>Check out <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users_create.html" target="_blank">the official docs</a> for info how to add the IAM user. For the backups system to work securely, you should use a custom policy for the IAM user. Check out my other tutorial for more in depth info about <a href="https://pawelurbanek.com/s3-iam-config">configuring correct access rights on S3</a>. To continue with the tutorial you can add the following inline policy granting the user permissions for the single bucket only:</p>
+
+<figure class="highlight"><pre><code class="language-json" data-lang="json"><span class="p">{</span><span class="w">
+    </span><span class="s2">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+    </span><span class="s2">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="s2">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="s2">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"s3:ListBucket"</span><span class="w">
+            </span><span class="p">],</span><span class="w">
+            </span><span class="s2">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"arn:aws:s3:::your-backups-bucket"</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="s2">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="s2">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"s3:PutObject"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"s3:GetObject"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"s3:PutObjectAcl"</span><span class="w">
+            </span><span class="p">],</span><span class="w">
+            </span><span class="s2">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"arn:aws:s3:::your-backups-bucket/*"</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre></figure>
+
+<p>Make sure to copy both <code class="highlighter-rouge">AWS Access Key ID</code> and <code class="highlighter-rouge">AWS Secret Access Key</code> generated because we’ll need them later.</p>
+
+<p>Let’s move on to writing the actual backup script:</p>
+
+<h2 id="backup-bash-script">Backup bash script</h2>
+
+<p>We’ll need to install and configure <a href="https://github.com/heroku/heroku-buildpack-awscli" target="_blank">AWS CLI buildpack</a> to upload our backup file to S3 from the Heroku dyno.</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku buildpacks:add heroku-community/awscli
+heroku config:set <span class="nv">AWS_ACCESS_KEY_ID</span><span class="o">=[</span>Your AWS Access Key ID]
+heroku config:set <span class="nv">AWS_SECRET_ACCESS_KEY</span><span class="o">=[</span>Your AWS Secret Access Key]
+heroku config:set <span class="nv">AWS_DEFAULT_REGION</span><span class="o">=[</span>Your S3 bucket name]
+heroku config:set <span class="nv">S3_BUCKET_NAME</span><span class="o">=[</span>Your S3 bucket name]</code></pre></figure>
+
+<p>Now, add <a href="https://github.com/heroku/heroku-buildpack-cli" target="_blank">another buildpack</a> to enable Heroku CLI access from within the script:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku authorizations:create <span class="o">=&gt;</span> TOKEN
+heroku config:set <span class="nv">HEROKU_API_KEY</span><span class="o">=[</span>TOKEN]
+heroku buildpacks:add heroku-community/cli</code></pre></figure>
+
+<div class="center annotation">Read on for tips on how to implement the backups without using additional buildpacks</div>
+<p><br></p>
+
+<p>You also need to set a secure password that will be used to encrypt the database dump files before uploading them to S3. You can use OpenSSL fot that:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku config:set <span class="nv">PG_BACKUP_PASSWORD</span><span class="o">=</span><span class="k">$(</span>openssl rand <span class="nt">-base64</span> 32<span class="k">)</span></code></pre></figure>
+
+<p>Just make sure to save this password somewhere safe. Otherwise that destructive one-liner will also prevent you from decrypting the secondary backup.</p>
+
+<p>You must also set your Heroku app name because it will be used by Heroku CLI to download the latest backup:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku config:set <span class="nv">APP_NAME</span><span class="o">=</span>app-name</code></pre></figure>
+
+<p>Now let’s see the actual script <code class="highlighter-rouge">bin/pg_backup_to_s3</code>:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="c"># Set the script to fail fast if there</span>
+<span class="c"># is an error or a missing variable</span>
+
+<span class="nb">set</span> <span class="nt">-eu</span>
+<span class="nb">set</span> <span class="nt">-o</span> pipefail
+
+<span class="c">#!/bin/sh</span>
+
+<span class="c"># Download the latest backup from</span>
+<span class="c"># Heroku and gzip it</span>
+
+heroku pg:backups:download <span class="nt">--output</span><span class="o">=</span>/tmp/pg_backup.dump <span class="nt">--app</span> <span class="nv">$APP_NAME</span>
+<span class="nb">gzip</span> /tmp/pg_backup.dump
+
+<span class="c"># Encrypt the gzipped backup file</span>
+<span class="c"># using GPG passphrase</span>
+
+gpg <span class="nt">--yes</span> <span class="nt">--batch</span> <span class="nt">--passphrase</span><span class="o">=</span><span class="nv">$PG_BACKUP_PASSWORD</span> <span class="nt">-c</span> /tmp/pg_backup.dump.gz
+
+<span class="c"># Remove the plaintext backup file</span>
+
+<span class="nb">rm</span> /tmp/pg_backup.dump.gz
+
+<span class="c"># Generate backup filename based</span>
+<span class="c"># on the current date</span>
+
+<span class="nv">BACKUP_FILE_NAME</span><span class="o">=</span><span class="s2">"heroku-backup-</span><span class="k">$(</span><span class="nb">date</span> <span class="s1">'+%Y-%m-%d_%H.%M'</span><span class="k">)</span><span class="s2">.gpg"</span>
+
+<span class="c"># Upload the file to S3 using</span>
+<span class="c"># AWS CLI</span>
+
+aws s3 <span class="nb">cp</span> /tmp/pg_backup.dump.gz.gpg <span class="s2">"s3://</span><span class="k">${</span><span class="nv">S3_BUCKET_NAME</span><span class="k">}</span><span class="s2">/</span><span class="k">${</span><span class="nv">BACKUP_FILE_NAME</span><span class="k">}</span><span class="s2">"</span>
+
+<span class="c"># Remove the encrypted backup file</span>
+
+<span class="nb">rm</span> /tmp/pg_backup.dump.gz.gpg</code></pre></figure>
+
+<p>Depending on your S3 bucket location you might have to change <code class="highlighter-rouge">s3-eu-west-1</code> to other region.</p>
+
+<p>Now make the file executable by typing:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nb">chmod</span> +x bin/pg_backup_to_s3</code></pre></figure>
+
+<p>Before you test it make sure you have the up to date backup by running:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku pg:backups:capture</code></pre></figure>
+
+<p>You can try to run the script locally if you set all the correct shell variables.</p>
+
+<p>Now commit the changes to your repo and deploy them to Heroku. You can now test your script in Heroku environment by typing:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku run ./bin/pg_backup_to_s3</code></pre></figure>
+
+<p>After the script execution you should see your encrypted backup file on the S3 bucket!</p>
+
+<p><img class="center-image" alt="PostgreSQL backup file is on S3 now" title="PostgreSQL backup file is on S3 now" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/heroku_s3_backup_file-b7b0f191db7463b58a73c13b410fd6efdc3e269116368f4b222bf6ac2bd156df.png"></p>
+
+<h3 id="troubleshooting">Troubleshooting</h3>
+
+<p>The script is a bit complex so if you fail to upload the backup file to S3 you can try the following:</p>
+
+<ul>
+  <li>change <code class="highlighter-rouge">set -eu</code> to <code class="highlighter-rouge">set -eux</code> for more verbose script output</li>
+  <li>leave a comment, took me a while to make it work, happy to help here ;)</li>
+</ul>
+
+<h3 id="implementation-without-additional-heroku-buildpacks">Implementation without additional Heroku buildpacks</h3>
+
+<p>You can avoid the Heroku CLI buildpack by using the <code class="highlighter-rouge">pg_dump</code> directly on the database:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">pg_dump <span class="nt">-Fc</span> <span class="nv">$DATABASE_URL</span> <span class="o">&gt;</span> /tmp/pg_backup.dump</code></pre></figure>
+
+<p>You might run into compatibility issues if your database version if different than one supported by the <code class="highlighter-rouge">pg_dump</code> currently installed on your Heroku dynos.</p>
+
+<p>To upload to the S3 bucket without installing the AWS CLI, you could generate a one-time upload URL in the backend and pass it to the script. Later you could upload the file via cURL. Details on how to implement it are beyond the scope of this tutorial. You can find tips on client-side uploads with pre-signed URLs in <a href="https://pawelurbanek.com/rails-secure-s3-uploads">my previous post</a>.</p>
+
+<h2 id="use-heroku-scheduler-for-automatic-script-execution">Use Heroku scheduler for automatic script execution</h2>
+
+<p>You can now run the backup script manually, let’s make it automatic. <a href="https://devcenter.heroku.com/articles/scheduler" target="_blank">Heroku Scheduler</a> is a <code class="highlighter-rouge">cron</code> like tool to run Heroku jobs in predefined time periods.</p>
+
+<p>You can add it by typing:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku addons:create scheduler:standard
+heroku addons:open scheduler</code></pre></figure>
+
+<p>and configure it like that:</p>
+
+<p><img class="center-image" alt="Heroku scheduler config UI" title="Heroku scheduler config UI" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/heroku_scheduler_backup-5975a70ae15a340d33685e0871f68b0f19641785411f23817b02ea1e630dd02c.png"></p>
+
+<p>To make sure that the newest database dump will be stored daily you can schedule Heroku backup to take place just before the scheduler script execution:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku pg:backups:schedule DATABASE_URL <span class="nt">--at</span> <span class="s1">'01:00'</span></code></pre></figure>
+
+<p>That’s it. Now your Heroku PostgreSQL will be backed up daily to your own secure S3 bucket. You might also want to consider adding a <a href="https://docs.aws.amazon.com/AmazonS3/latest/user-guide/create-lifecycle.html" target="_blank">bucket lifecycle rule</a> to remove the older files and optimize storage costs.</p>
+
+<h2 id="how-to-restore-heroku-s3-postgresql-backup">How to restore Heroku S3 PostgreSQL backup</h2>
+
+<p>It is a good practice to double check that your backups actually work and can be restored in case they are needed. Let me show you how to do it.</p>
+
+<h3 id="aws-cli-configuration">AWS CLI configuration</h3>
+
+<p>AWS CLI will be needed to restore the backup. You can install it locally by following <a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html" target="_blank">this tutorial</a>.</p>
+
+<p>Now authenticate the AWS CLI by running:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">aws configure</code></pre></figure>
+
+<p>and inputting your IAM user <code class="highlighter-rouge">AWS Access Key ID</code> and <code class="highlighter-rouge">AWS Secret Access Key</code>. You can just press ENTER when asked to provide <code class="highlighter-rouge">Default region name</code> and <code class="highlighter-rouge">Default output format</code>.</p>
+
+<p>When it’s it up and running you can now generate a short-lived download URL for your encrypted backup file. Let’s assume that it’s S3 path is <code class="highlighter-rouge">s3://heroku-secondary-backups/heroku-backup-2019-06-25_01.30.gpg</code>. You can download it with the following command:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">wget <span class="k">$(</span>aws s3 presign s3://heroku-secondary-backups/heroku-backup-2019-06-25_01.30.gpg <span class="nt">--expires-in</span> 5<span class="k">)</span> <span class="nt">-O</span> backup.gpg</code></pre></figure>
+
+<p>Once you have it on your local disc you can decrypt it by running:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">gpg <span class="nt">--batch</span> <span class="nt">--yes</span> <span class="nt">--passphrase</span><span class="o">=</span><span class="nv">$PG_BACKUP_PASSWORD</span> <span class="nt">-d</span> backup.gpg | <span class="nb">gunzip</span> <span class="nt">--to-stdout</span> <span class="o">&gt;</span> backup.sql</code></pre></figure>
+
+<p><img class="center-image" alt="PostgreSQL dump file format" title="PostgreSQL dump file format" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/postgresql_dump_file-c17bf15e0ad30b77eb868859f6bf6f466f977dd89b111021da19b75bfb8cc55d.png"></p>
+<div class="center annotation">Make sure that your dump file is in the correct plain text format and starts with the "PGDMP" string</div>
+<p><br></p>
+
+<p>Now you have to upload the decrypted version of a backup back to S3 bucket, use it to restore Heroku database and remove it from the bucket right after its been used. We will start with testing it out on a newly provisioned database add-on:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku addons:create heroku-postgresql:hobby-dev
+aws s3 <span class="nb">cp </span>backup.sql s3://heroku-secondary-backups/backup.sql
+heroku pg:backups:restore <span class="k">$(</span>aws s3 presign s3://heroku-secondary-backups/backup.sql <span class="nt">--expires-in</span> 60<span class="k">)</span> HEROKU_POSTGRESQL_GRAY_URL <span class="nt">-a</span> app-name
+aws s3 <span class="nb">rm </span>s3://heroku-secondary-backups/backup.sql</code></pre></figure>
+
+<div class="center annotation">Remember to replace HEROKU_POSTGRESQL_GRAY_URL with the URL of your newly provisioned database add-on. You can check out the <a href="https://devcenter.heroku.com/articles/heroku-postgres-import-export" class="link-grey" target="_blank">Heroku docs</a> if you run into trouble</div>
+<p><br></p>
+
+<p>You can now check if the content of your database looks correct by logging into it and running some queries:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku pg:psql HEROKU_POSTGRESQL_GRAY_URL</code></pre></figure>
+
+<p>If everything looks OK you can now restore the backup file to your production database:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">aws s3 <span class="nb">cp </span>backup.sql s3://heroku-secondary-backups/backup.sql
+heroku pg:backups:restore <span class="k">$(</span>aws s3 presign s3://heroku-secondary-backups/backup.sql <span class="nt">--expires-in</span> 60<span class="k">)</span> DATABASE_URL <span class="nt">-a</span> app-name
+aws s3 <span class="nb">rm </span>s3://heroku-secondary-backups/backup.sql</code></pre></figure>
+
+<p>Alternatively, you could promote the new database add-on as your new primary database:</p>
+
+<figure class="highlight"><pre><code class="language-bash" data-lang="bash">heroku pg:promote HEROKU_POSTGRESQL_GRAY_URL</code></pre></figure>
+
+<h2 id="summary">Summary</h2>
+
+<p>I hope this blog post will help you secure your Heroku app data from random incidents. A secondary backup on a proprietary secure S3 bucket is the best practice that every startup and non-trivial <a href="https://abot.app/">side project</a> should follow.</p>
+
+<p>I am not too much into devops, so tips on how this tutorial could be improved are welcome.</p>
+
+</article>
+
+<br>
+<div class="js-progress-end"></div>
+
+<div class="page-navigation">
+  
+    <a class="prev navigation-link" href="https://pawelurbanek.com/seo-tips-programmers">« Best SEO Tips &amp; Tools for Blogging Programmers in 2020</a>
+
+  
+  
+    <a class="right next navigation-link" href="https://pawelurbanek.com/rails-secure-encrypt-decrypt"> A Simple Way to Encrypt Data in Rails without Gem »</a>
+  
+</div>
+
+<div class="center">
+  <div class="footer-special">
+    <span class="explanation">Advertisement</span>
+    <br>
+      <p class="center">Big thanks to ScoutAPM for sponsoring my blog’s Ruby and Rails performance related content. If you want to give Scout a try, you can check them out here:</p>
+      <a rel="nofollow" target="_blank" href="https://scoutapm.com/?utm_medium=blog&amp;utm_source=pawel">
+        <img class="center-image event-click" alt="Scout APM banner" title="Scout APM banner" loading="lazy" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/scout-banner-8bf1a4ac028fffad1a2d8c98f2e5960e99b0e31d5cf6f8d653c2f2dff2134eba.png">
+      </a>
+  </div>
+</div>
+<br>
+
+
+<div class="center">
+  <img loading="lazy" alt="Pawel Urbanek Full Stack Ruby on Rails developer avatar" title="Pawel Urbanek Full Stack Ruby on Rails developer avatar" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/pawel-circle-eafe4e7f9c98c20c753dcba1f1b1a16ed8bc384cdf2da91d272dd2291d8e7a4d.jpg" srcset="https://pawelurbanek.com/assets/pawel-circle-eafe4e7f9c98c20c753dcba1f1b1a16ed8bc384cdf2da91d272dd2291d8e7a4d.jpg 1x, https://pawelurbanek.com/assets/pawel-circle@2x-352753604906054aa864cc5f3916317be7c2b7db8f8703243a0447d06187c641.jpg 2x">
+</div>
+
+<div class="post-footer twitter-icon">
+  <a class="link-grey" href="https://twitter.com/_pawurb" target="_blank" rel="nofollow">
+    Follow me on
+    <img loading="lazy" class="image-align" alt="Twitter link" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png" srcset="https://pawelurbanek.com/assets/twitter-9863fdece66492f803e15e512e1f2d16ddd1bfad52e97104245b973e55ec0343.png 1x, https://pawelurbanek.com/assets/twitter@2x-bb4de08ef7390cb0e6bc0e4c74d50e098821cd7c55f1c6b20560a7a325d29164.png 2x">
+  </a>
+</div>
+<br>
+
+<div class="center">
+  <p>I'm not giving away a free ebook, but you're still welcome to subscribe.</p>
+  <span class="button email-link">
+  <a href="https://eepurl.com/dhuFg5" rel="nofollow" target="_blank">Subscribe</a>
+</span>
+
+</div>
+
+<br>
+
+<div class="bottom-sm">
+  <a class="link bottom-sm" href="https://pawelurbanek.com/heroku-postgresql-s3-backup#top">Back to top</a>
+</div>
+
+<div>
+  <a class="link" href="https://pawelurbanek.com/#posts">Back to index</a>
+</div>
+<br>
+<br>
+
+
+
+<div id="commento" class="commento-root"><div id="commento-login-box-container"></div><div id="commento-error" class="commento-error-box" style="display: none;"></div><div id="commento-mod-tools" class="commento-mod-tools" style="display: none"><button id="commento-mod-tools-lock-button">Lock Thread</button></div><div id="commento-main-area" class="commento-main-area" style=""><div id="commento-login" class="commento-login"><div class="commento-login-text">Login</div></div><div id="commento-textarea-super-container-root" class="commento-button-margin"><div id="commento-textarea-container-root" class="commento-textarea-container"><textarea id="commento-textarea-root" placeholder="Add a comment"></textarea></div><button id="commento-submit-button-root" class="commento-button commento-submit-button">Add Comment</button><div class="commento-round-check commento-anonymous-checkbox-container"><input id="commento-anonymous-checkbox-root" type="checkbox"><label for="commento-anonymous-checkbox-root">Comment anonymously</label></div><a id="commento-markdown-button-root" class="commento-markdown-button"><b>M ↓</b> &nbsp; Markdown</a></div><div class="commento-sort-policy-buttons-container"><div class="commento-sort-policy-buttons"><a id="commento-sort-policy-score-desc" class="commento-sort-policy-button commento-sort-policy-button-selected">Upvotes</a><a id="commento-sort-policy-creationdate-desc" class="commento-sort-policy-button">Newest</a><a id="commento-sort-policy-creationdate-asc" class="commento-sort-policy-button">Oldest</a></div></div><div id="commento-pre-comments-area"></div><div id="commento-comments-area" class="commento-comments"><div><div id="commento-comment-card-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-options" style="width: 192px;"><button id="commento-comment-collapse-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button><button id="commento-comment-sticky-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="This comment has been stickied" class="commento-option-button commento-option-unsticky" style="right: 128px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-subtitle"><div id="commento-comment-score-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-score">1 point</div><div id="commento-comment-timeago-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" title="Wed Jun 26 2019 15:22:12 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831"><div id="commento-comment-body-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-body"><div id="commento-comment-text-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831"><p>Probably worth mentioning not to forget to store the GPG pass phrase somewhere other than in the Heroku environment variable. Otherwise  that destructive one-liner will also prevent you from decrypting the backup ;)</p>
+</div></div><div id="commento-comment-children-4c7d37529728cdaf67a27b467c39455a7c180415a99a01b9a148b404f3a08831" class="commento-body"><div id="commento-comment-card-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-subtitle"><div id="commento-comment-score-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-score">0 points</div><div id="commento-comment-timeago-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" title="Wed Jun 26 2019 17:10:25 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311"><div id="commento-comment-body-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311" class="commento-body"><div id="commento-comment-text-3bd34fc53719b346cb8c458c48ddd6a7d29fc3d82faac20b57f39d62ca51f311"><p>Thanks, only realized that now. The warning was added ;)</p>
+</div></div></div></div></div></div></div><div id="commento-comment-card-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-subtitle"><div id="commento-comment-score-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-score">1 point</div><div id="commento-comment-timeago-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" title="Wed Jun 26 2019 14:29:22 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b"><div id="commento-comment-body-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-body"><div id="commento-comment-text-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b"><p>FWIW, I contacted Heroku support to double-check this claim: "Just by typing [...cmd...] you can COMPLETELY destroy the Heroku app including all it’s add-ons, databases and backups data."</p>
+
+<p>They said the app and add-ons would be gone, but other than a hobby tier plan, the database backups would be kept around.</p>
+
+<p>I'm definitely in favor of redundant backups, so I think this article is still very worthwhile and I appreciate you sharing it. :)</p>
+</div></div><div id="commento-comment-children-6a0681248e106acdf6fe555780ebecf708bc632c41bf09b6db6151a92335221b" class="commento-body"><div id="commento-comment-card-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-subtitle"><div id="commento-comment-score-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-score">0 points</div><div id="commento-comment-timeago-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" title="Wed Jun 26 2019 16:51:08 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204"><div id="commento-comment-body-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204" class="commento-body"><div id="commento-comment-text-c54e5e4238d6e90522f37558e90e66aea41c02ea9daadded51c0a17254b53204"><p>Thanks for the info. I was not aware of that, but "kept around" does not sound very reassuring. I would update the blog post claim if this information was added to the official Heroku docs.  Looking at Heroku support plans page <a href="https://www.heroku.com/support" rel="nofollow">https://www.heroku.com/support</a> a team on a free support plan would have to wait an undetermined amount of time to potentially restore their backup.</p>
+</div></div></div></div></div></div></div><div id="commento-comment-card-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-card" style="border-left: 2px solid rgb(57, 106, 177);"><div class="commento-header"><div id="commento-comment-options-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(57, 106, 177);">J</div><div id="commento-comment-name-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-name" style="max-width: 145px;">Jakub Chodounsky</div><div id="commento-comment-subtitle-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-subtitle"><div id="commento-comment-score-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-score">1 point</div><div id="commento-comment-timeago-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" title="Tue Jul 02 2019 23:53:16 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136"><div id="commento-comment-body-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136" class="commento-body"><div id="commento-comment-text-75c90d1058dec2abf9c398dbfff5e4db4453e0acf5cfe72100d4b42b0eb7f136"><p>Great article, Pawel. Thank you for posting it. We were just looking at the "offsite" backup solution for Heroku and this helped us heaps!</p>
+
+<p>I got a bit stuck at not realising there are two places to replace <code>s3-eu-west-1</code> in your script and forgot to put <code>s3-</code> in front of the region name. It might be obvious but I used AWS pretty much for the first time. You can get the list of regions in the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html" rel="nofollow">docs here</a>.</p>
+</div></div></div></div><div id="commento-comment-card-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-subtitle"><div id="commento-comment-score-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-score">1 point</div><div id="commento-comment-timeago-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" title="Thu Jul 18 2019 05:08:21 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">13 months ago</div></div></div><div id="commento-comment-contents-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5"><div id="commento-comment-body-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5" class="commento-body"><div id="commento-comment-text-5d1124bc16e5087bab342ba51f93b5d7dc811a457741d7dbc03c980c89f998b5"><p>This is a great article!! Thank you</p>
+</div></div></div></div><div id="commento-comment-card-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-subtitle"><div id="commento-comment-score-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-score">0 points</div><div id="commento-comment-timeago-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" title="Wed Apr 29 2020 12:16:51 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">4 months ago</div></div></div><div id="commento-comment-contents-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336"><div id="commento-comment-body-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-body"><div id="commento-comment-text-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336"><p>Thanks a lot. I do this weekly "doomsday-backup" to a local drive + dropbox. I would love to pay for this service :)</p>
+</div></div><div id="commento-comment-children-33ce2a41a5d5af583b3a5600aeadea12eec47d307103e93ffa60a318b7583336" class="commento-body"><div id="commento-comment-card-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-subtitle"><div id="commento-comment-score-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-score">0 points</div><div id="commento-comment-timeago-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" title="Wed Apr 29 2020 17:02:55 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">4 months ago</div></div></div><div id="commento-comment-contents-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba"><div id="commento-comment-body-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba" class="commento-body"><div id="commento-comment-text-cd43ecd8178d1884253765ec725bfb2c019b8d7babe3a94b4aeb2e1ebb3518ba"><p>Good for you it's free. But you can always reach out if you need help setting it up in your project ;)</p>
+</div></div></div></div></div></div></div><div id="commento-comment-card-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-subtitle"><div id="commento-comment-score-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-score">0 points</div><div id="commento-comment-timeago-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" title="Wed Jun 26 2019 13:47:00 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f"><div id="commento-comment-body-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-body"><div id="commento-comment-text-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f"><p>Great article! Question: what security issue is mitigated by forking the CLI buildpack repo?</p>
+</div></div><div id="commento-comment-children-391f027b737d0949afc93a6058f9016097fd28d3bb2d1dad618235d296e38f7f" class="commento-body"><div id="commento-comment-card-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-subtitle"><div id="commento-comment-score-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-score">0 points</div><div id="commento-comment-timeago-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" title="Wed Jun 26 2019 16:59:16 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">14 months ago</div></div></div><div id="commento-comment-contents-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7"><div id="commento-comment-body-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7" class="commento-body"><div id="commento-comment-text-765f95ba5f78211317bae2f2a9ec9c860e3e9f6f2e68529163fd24ba58f49fd7"><p>Glad you find it useful. By adding an external buildpack you allow scripts maintained by someone else to execute with high level permissions in your app environment. Even if the buildpack repo is safe now, it could get compromised and with every deploy the newest version is automatically used.</p>
+</div></div></div></div></div></div></div><div id="commento-comment-card-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><div class="commento-avatar" style="background: rgb(83, 81, 84); font-weight: bold;">?</div><div id="commento-comment-name-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-name" style="max-width: 101px;">Anonymous</div><div id="commento-comment-subtitle-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-subtitle"><div id="commento-comment-score-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-score">0 points</div><div id="commento-comment-timeago-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" title="Thu Dec 19 2019 19:17:16 GMT-0500 (Eastern Standard Time)" class="commento-timeago">8 months ago</div></div></div><div id="commento-comment-contents-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb"><div id="commento-comment-body-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-body"><div id="commento-comment-text-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb"><p>Thank you for this! I used part of your script in combination with this script for signature V4: <a href="https://gist.github.com/vszakats/2917d28a951844ab80b1" rel="nofollow">https://gist.github.com/vszakats/2917d28a951844ab80b1</a></p>
+</div></div><div id="commento-comment-children-0e2a49cabffa7a2bb01c5b2a185014021e97426e40a6cf584d90448996018edb" class="commento-body"><div id="commento-comment-card-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-card" style="border-left: 2px solid rgb(62, 150, 81);"><div class="commento-header"><div id="commento-comment-options-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo(1)" class="commento-avatar-img"><a id="commento-comment-name-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-name" href="https://plus.google.com/112968181500604802993" style="max-width: 108px;">Elia Gandolfi</a><div id="commento-comment-subtitle-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-subtitle"><div id="commento-comment-score-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-score">0 points</div><div id="commento-comment-timeago-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" title="Mon Jan 27 2020 06:29:12 GMT-0500 (Eastern Standard Time)" class="commento-timeago">7 months ago</div></div></div><div id="commento-comment-contents-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf"><div id="commento-comment-body-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-body"><div id="commento-comment-text-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf"><p>Facing the same problem of adapting to V4.  I keep having signature mismatch errors. Would you be able to share a code sample?</p>
+</div></div><div id="commento-comment-children-aedd15d3cd185f25a221da477a3e37b8f88891a495088f78a31a595d026355bf" class="commento-body"><div id="commento-comment-card-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-subtitle"><div id="commento-comment-score-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-score">0 points</div><div id="commento-comment-timeago-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" title="Fri Apr 24 2020 16:42:30 GMT-0400 (Eastern Daylight Time)" class="commento-timeago">4 months ago</div></div></div><div id="commento-comment-contents-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9"><div id="commento-comment-body-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9" class="commento-body"><div id="commento-comment-text-54b887cfa651d1f038561be838db8cb0d14feb050f39febf1b4b57df4ef7adc9"><p>Hi. It's been a while since your comment but I've just updated the tutorial to use AWS CLI instead of manual signing. It's less error prone, so hope you'll find it useful.</p>
+</div></div></div></div></div></div></div></div></div></div><div id="commento-comment-card-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-card" style="border-left: 2px solid rgb(57, 106, 177);"><div class="commento-header"><div id="commento-comment-options-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo(2)" class="commento-avatar-img"><a id="commento-comment-name-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-name" href="https://github.com/enitschorn" style="max-width: 133px;">Christine Schorn</a><div id="commento-comment-subtitle-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-subtitle"><div id="commento-comment-score-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-score">0 points</div><div id="commento-comment-timeago-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" title="Mon Jan 13 2020 23:17:41 GMT-0500 (Eastern Standard Time)" class="commento-timeago">7 months ago</div></div></div><div id="commento-comment-contents-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac"><div id="commento-comment-body-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-body"><div id="commento-comment-text-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac"><p>Great article/tutorial! I'm very new to AWS and coding in general, so these types of articles are very very helpful!
+However, when I try to run the script, I get the following error messages:
+./bin/pg<em>backup</em>to<em>s3:7: syntax error, unexpected tIDENTIFIER, expecting do or '{' or '('
+set -o pipefail
+./bin/pg</em>backup<em>to</em>s3:14: syntax error, unexpected tLABEL
+heroku pg:backups:download --output=/tmp/pg<em>bac...
+./bin/pg</em>backup<em>to</em>s3:14: unknown regexp options - pg
+./bin/pg<em>backup</em>to<em>s3:14: syntax error, unexpected tIDENTIFIER, expecting end-of-input
+...ownload --output=/tmp/pg</em>backup.dump --app $APP_NAME</p>
+
+<p>Has anybody else experienced this before or knows what I'm doing wrong?</p>
+</div></div><div id="commento-comment-children-55806594188fe14d7bfd42d40d73463e8b8811dfc0b6a69177f3c4ccefc57aac" class="commento-body"><div id="commento-comment-card-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-card" style="border-left: 2px solid rgb(83, 81, 84);"><div class="commento-header"><div id="commento-comment-options-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-options" style="width: 160px;"><button id="commento-comment-collapse-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" title="Collapse children" class="commento-option-button commento-option-collapse" style="right: 0px;"></button><button id="commento-comment-downvote-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" title="Downvote" class="commento-option-button commento-option-downvote" style="right: 32px;"></button><button id="commento-comment-upvote-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" title="Upvote" class="commento-option-button commento-option-upvote" style="right: 64px;"></button><button id="commento-comment-reply-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" title="Reply" class="commento-option-button commento-option-reply" style="right: 96px;"></button></div><img src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/photo" class="commento-avatar-img"><div id="commento-comment-name-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-moderator commento-name" style="max-width: 206px;">Pawel Urbanek</div><div id="commento-comment-subtitle-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-subtitle"><div id="commento-comment-score-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-score">0 points</div><div id="commento-comment-timeago-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" title="Thu Jan 16 2020 03:28:03 GMT-0500 (Eastern Standard Time)" class="commento-timeago">7 months ago</div></div></div><div id="commento-comment-contents-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925"><div id="commento-comment-body-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925" class="commento-body"><div id="commento-comment-text-53a9b927785a65e7ce2523e412d1ed634b3c0b097040bd80e2e6188feaf1e925"><p>Hi. It looks like you're trying to run bash script as a Ruby code.</p>
+</div></div></div></div></div></div></div></div></div></div><div id="commento-footer" class="commento-footer"><div class="commento-logo-container"><a class="commento-logo" href="https://commento.io/" target="_blank"><span class="commento-logo-text">Commento</span></a></div></div></div>
+<script async="" data-no-fonts="true" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/commento.js"></script>
+
+
+<script>
+  (function () {
+    var removeClass = function(el, className) {
+      if (el.classList) {
+        el.classList.remove(className);
+      } else
+        el.className = el.className.replace(new RegExp('(^|\\b)' + className.split(' ').join('|') + '(\\b|$)', 'gi'), ' ');
+    };
+
+    var addClass = function(el, className) {
+      if (el.classList) {
+        el.classList.add(className);
+      } else {
+        el.className += ' ' + className;
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", function(event) {
+      setTimeout(function() {
+        var postBottom = document.getElementsByClassName('js-progress-end')[0];
+        var bodyRect = document.body.getBoundingClientRect()
+        var elemRect = postBottom.getBoundingClientRect()
+        var bottomY = elemRect.top - bodyRect.top - 300;
+
+        var readProgress = function() {
+          var scrollTop = Math.max((document.documentElement["scrollTop"] || document.body["scrollTop"]) - 400, 0);
+          var scrollBottom = (document.documentElement["scrollHeight"] || document.body["scrollHeight"]) - document.documentElement.clientHeight;
+
+          var scrollPercent = scrollTop / bottomY * 100 + "%";
+          document.getElementById("_progress").style.setProperty("--scroll", scrollPercent);
+        }
+
+        document.addEventListener("scroll", readProgress, { passive: true })
+        readProgress()
+      }, 1000)
+    })
+  })();
+</script>
+
+      </div>
+    </div>
+  </div>
+
+  <footer class="center">
+  <div class="measure">
+    <small>
+      Copyright © Paweł Urbanek 2020
+      <br>
+      <a class="link-grey" href="https://pawelurbanek.com/terms">Terms</a>
+    </small>
+  </div>
+</footer>
+
+
+
+  <script>
+  (function () {
+    (function() {
+      Array.prototype.slice.call(
+        document.getElementsByClassName('js-async-img')
+      ).forEach(function(asyncImgNode) {
+        var fullImg = new Image()
+        fullImg.src = asyncImgNode.dataset.src;
+        fullImg.onload = function() {
+          asyncImgNode.classList.remove('js-async-img')
+          asyncImgNode.src = asyncImgNode.dataset.src
+        };
+      });
+    })();
+
+})();
+
+window.commentsText = function(count) {
+  if(count === 0) {
+    return "";
+  } else if(count === 1) {
+    return "1 comment";
+  } else {
+    return count + " comments";
+  }
+}
+
+</script>
+
+<script async="" defer="" src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/count.js" data-custom-text="window.commentsText"></script>
+
+<script src="./Backup Heroku PostgreSQL to AWS S3 Bucket [Step by Step Tutorial]_files/scripts-349989ba487a4a02e274be05114de0474c2742108c3d398c5d4f3ba8357db92a.js" type="text/javascript"></script>
+
+
+
+<div class="cookiebanner" style="position: fixed; left: 0px; right: 0px; height: auto; min-height: 21px; z-index: 255; background: rgb(254, 254, 254); color: rgb(0, 0, 0); line-height: 21px; padding: 5px 16px; font-family: arial, sans-serif; font-size: 14px; text-align: center; top: 0px; opacity: 1;"><div class="cookiebanner-close" style="float: left; padding-left: 25px; font-size: 17px; cursor: pointer;"><span class="theme-color">Accept</span></div><span>By continuing to browse the site, you are agreeing to the use of cookies.</span></div></body></html>
